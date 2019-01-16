@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    
+    <db:mysql-config name="MySQL_Configuration" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8089" doc:name="HTTP Listener Configuration"/>
+    <flow name="update-user-accountFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/customer_details" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <set-variable variableName="IdentityProof" value="#[payload.IdentityProof]==" doc:name="String"/>
+        <validation:is-true message="Inside Identity Proof------#[payload.IdentityProof]-----" expression="#[payload.IdentityProof=='PAN' or 'AADHAR']" doc:name="Validation"/>
+        <logger message="Inside  Log --- #[payload]" level="INFO" doc:name="Logger"/>
+        <validation:is-not-null message="Message is not null !!" value="#[payload]" doc:name="Validation"/>
+        <validation:is-email message="Email is incorrect"  doc:name="Validation" email="#[payload.emailid]"/>
+        <validation:is-number message="Mobile Number is Invalid !" value="#[payload.mobile]" numberType="DOUBLE" doc:name="Validation"/>
+        <validation:validate-size value="#[payload]" max="10" doc:name="Validation"/>
+        <logger level="INFO" doc:name="Logger" message="Inside Second Log"/>
+        <json:object-to-json-transformer mimeType="application/json" doc:name="Object to JSON"/>
+    </flow>
+    <flow name="update-user-account">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/update-customer-details" doc:name="HTTP" allowedMethods="PUT"/>
+        <json:json-to-object-transformer doc:name="JSON to Object" returnClass="java.util.HashMap"/>
+        <logger message="#[payload.mobile]" level="INFO" doc:name="Logger"/>
+        <validation:all doc:name="Validation">
+            <validation:validations>
+                <validation:is-email email="#[payload.emailid]" message="Invalid Email Id !!!!"/>
+                <validation:is-not-empty value="#[payload.mobile],#[payload.identityProof]"/>
+                <validation:is-not-null value="#[payload.mobile]"/>
+                <validation:validate-size value="#[payload.identityProof]" min="10" max="10"/>
+                <validation:validate-size value="#[payload.mobile]" min="10" max="10"/>
+            </validation:validations>
+        </validation:all>
+        <logger message="Validation Successful !!!!" level="INFO" doc:name="Logger"/>
+        <db:update config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[UPDATE CUSTOMER	 SET mobile = #[payload.mobile] , emailid=#[payload.email],customername=#[payload.customername],DOB=#[payload.DOB] WHERE id =#[payload.id];]]></db:parameterized-query>
+        </db:update>
+        <logger message="#[payload]   Database Inserted record!!!" level="INFO" doc:name="Logger"/>
+        <set-payload value="Updated Row Successfully !!!!" doc:name="Set Payload" doc:description="Updated Successfully !!!!"/>
+    </flow>
+    <flow name="update-address-using-addressId">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/updateAddress/{addressId}" allowedMethods="PUT" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+        <validation:all doc:name="Validation">
+            <validation:validations>
+                <validation:is-true expression="#[payload.addressType==&quot;CURRENT&quot;or&quot;PERMANENT&quot;or&quot;PREVIOUS&quot;]"/>
+            </validation:validations>
+        </validation:all>
+        <logger message="#[message.inboundProperties.'http.uri.params'.addressId]" level="INFO" doc:name="Logger"/>
+        <db:update config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[UPDATE ADDRESS SET AddressLine1 = #[payload.addressLine1] ,addressType=#[payload.addressType] WHERE id = #[message.inboundProperties.'http.uri.params'.addressId]]]></db:parameterized-query>
+        </db:update>
+    </flow>
+    <flow name="update-user-accountFlow1">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/update-account-info/{accountId}" allowedMethods="PUT" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+        <validation:validate-size message="Invalid Account Number !!!" value="#[message.inboundProperties.'http.uri.params'.accountId]" min="10" max="10" doc:name="Validation"/>
+        <logger message="#[message.inboundProperties.'http.uri.params'.accountId]" level="INFO" doc:name="Logger"/>
+        <db:update config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[UPDATE ACCOUNT SET Account_balance = #[payload.accountBalance] ,AccountStatus=#[payload.accountStatus] WHERE id = #[message.inboundProperties.'http.uri.params'.accountId]]]></db:parameterized-query>
+        </db:update>
+        <logger message="UPDATED SUCESSFULLY" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>

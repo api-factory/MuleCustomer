@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8087" doc:name="HTTP Listener Configuration"/>
+    <db:mysql-config name="MySQL_Configuration" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration1" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration2" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration3" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration4" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration5" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration6" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration7" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration8" host="localhost" port="3306" user="root" password="new_password" database="user" doc:name="MySQL Configuration"/>
+    <flow name="insert-nesteda-dataFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/insert-data" doc:name="HTTP" allowedMethods="POST"/>
+        <json:json-to-object-transformer returnClass="model.Customer" doc:name="JSON to Object" doc:description="asfasdffsfsfsf"/>
+        <set-session-variable variableName="CustomerList" value="#[payload]" doc:name="Session Variable"/>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+        <logger message="Inside First -------#[payload.address[0].id]" level="INFO" doc:name="Logger"/>
+        <db:insert config-ref="MySQL_Configuration5" doc:name="Database">
+            <db:parameterized-query><![CDATA[INSERT INTO customer VALUES (#[payload.id],#[payload.customerName],#[payload.mobile],#[payload.email],#[payload.identityProof],#[payload.dob],#[payload.createdDate],#[payload.modifiedDate],#[payload.gender]);]]></db:parameterized-query>
+        </db:insert>
+
+        <logger message="Inside Second Logger------ #[sessionVars.CustomerList.customerName]------#[sessionVars.CustomerList.address]" level="INFO" doc:name="Logger"/>
+        <set-payload value="#[sessionVars.CustomerList.address]" doc:name="Set Payload"/>
+        <db:insert config-ref="MySQL_Configuration8" bulkMode="true" doc:name="Database">
+            <db:parameterized-query><![CDATA[INSERT INTO address VALUES (#[payload.id],#[payload.addressLine1],#[payload.city],#[payload.state],#[payload.country],#[payload.addressType],#[sessionVars.CustomerList.id]);]]></db:parameterized-query>
+        </db:insert>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <logger message="-----------Rows Inserted in the Databse - #[payload]--------------------" level="INFO" doc:name="Logger"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger message="Exception Occurred !!!" level="INFO" doc:name="Logger"/>
+        </catch-exception-strategy>
+
+    </flow>
+</mule>
